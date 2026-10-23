@@ -26,7 +26,7 @@
 2. Create a Python virtual environment named `.venv`.
 3. Install the required packages: `pandas`, `matplotlib` and `ipykernel`.
 4. Place the original `DataSet2.zip` in the `data/` folder.
-5. Open `notebooks/occupancy_feasibility.ipynb`.
+5. Open `notebooks/1_occupancy_feasibility.ipynb`.
 6. Select the project's Python environment as the Jupyter kernel.
 7. Execute the notebook cells in order.
 
