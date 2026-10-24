@@ -1,4 +1,7 @@
-"""Synthetic implementation tests for final-comparison safeguards, not real accuracy."""
+"""Check the safeguards used in the final comparison with made up examples.
+
+Passing these checks does not establish real forecasting accuracy.
+"""
 
 import numpy as np
 import pandas as pd
@@ -11,6 +14,7 @@ from src.final_evaluation import (
 
 @pytest.fixture
 def prepared():
+    """Provide a valid split with known timestamps so each timing rule can be tested."""
     forecast = pd.date_range("2024-05-06 10:00", periods=3, freq="15min", tz="Australia/Melbourne")
     data = pd.DataFrame({
         "forecast_time": forecast,
@@ -42,6 +46,7 @@ def prepared():
 
 @pytest.fixture
 def scores():
+    """Provide simple validation scores with deliberately different MAE and RMSE rankings."""
     return pd.DataFrame({
         "model": ["persistence", "linear_regression", "svr"],
         "split": ["validation"] * 3,
@@ -52,6 +57,14 @@ def scores():
 
 
 def predictions_for(data):
+    """Build matching predictions as a starting point for comparison checks.
+
+    Args:
+        data (pandas.DataFrame): The prepared example rows used by a test.
+
+    Returns:
+        pandas.DataFrame: Matching dates, recorded targets and persistence forecasts.
+    """
     result = data[["forecast_time", "target_time", "target_headcount_observed_at"]].copy()
     result["observed_headcount"] = data["target_headcount"].to_numpy()
     result["predicted_headcount"] = data["headcount_now"].to_numpy(dtype=float)
@@ -59,6 +72,7 @@ def predictions_for(data):
 
 
 def test_valid_partition_is_accepted_without_mutation(prepared):
+    """Accept valid examples without rewriting the data being checked."""
     data, settings = prepared
     original = data.copy(deep=True)
     validate_partition(data, settings, "train")
@@ -67,6 +81,7 @@ def test_valid_partition_is_accepted_without_mutation(prepared):
 
 @pytest.mark.parametrize("split", ["validation", "test", "unknown"])
 def test_wrong_partition_rejected(prepared, split):
+    """Reject examples assigned to a period they do not belong to."""
     data, settings = prepared
     with pytest.raises(ValueError):
         validate_partition(data, settings, split)
@@ -74,6 +89,7 @@ def test_wrong_partition_rejected(prepared, split):
 
 @pytest.mark.parametrize("minutes", [-1, 6])
 def test_future_or_stale_input_rejected(prepared, minutes):
+    """Reject a reading that is either too old or unavailable at the required time."""
     data, settings = prepared
     data["headcount_now_observed_at"] = data["forecast_time"] - pd.Timedelta(minutes=minutes)
     with pytest.raises(ValueError):
@@ -82,13 +98,16 @@ def test_future_or_stale_input_rejected(prepared, minutes):
 
 @pytest.mark.parametrize("minutes", [0, 5])
 def test_freshness_endpoints_accepted(prepared, minutes):
+    """Keep the exact timestamp and the five minute boundary inside the allowed window."""
     data, settings = prepared
     data["headcount_now_observed_at"] = data["forecast_time"] - pd.Timedelta(minutes=minutes)
+    # Update the saved age too so this test isolates the permitted time boundary.
     data["headcount_now_age_minutes"] = float(minutes)
     validate_partition(data, settings, "train")
 
 
 def test_duplicate_forecast_rejected(prepared):
+    """Prevent a repeated forecast from being counted twice."""
     data, settings = prepared
     data.loc[1, "forecast_time"] = data.loc[0, "forecast_time"]
     with pytest.raises(ValueError):
@@ -96,12 +115,14 @@ def test_duplicate_forecast_rejected(prepared):
 
 
 def test_reversed_order_rejected(prepared):
+    """Require chronological order rather than silently repairing the supplied rows."""
     data, settings = prepared
     with pytest.raises(ValueError):
         validate_partition(data.iloc[::-1], settings, "train")
 
 
 def test_wrong_horizon_rejected(prepared):
+    """Keep the prediction task at the specified thirty minute horizon."""
     data, settings = prepared
     data["target_time"] += pd.Timedelta(minutes=1)
     with pytest.raises(ValueError):
@@ -109,6 +130,7 @@ def test_wrong_horizon_rejected(prepared):
 
 
 def test_target_crossing_end_rejected(prepared):
+    """Prevent an earlier split from borrowing target information from a later period."""
     data, settings = prepared
     settings["validation_start"] = "2024-05-06T10:45:00+10:00"
     with pytest.raises(ValueError):
@@ -117,6 +139,7 @@ def test_target_crossing_end_rejected(prepared):
 
 @pytest.mark.parametrize("value", [np.nan, np.inf, -1, 1.5])
 def test_invalid_target_rejected(prepared, value):
+    """Reject unusable reference counts before scoring predictions."""
     data, settings = prepared
     data["target_headcount"] = data["target_headcount"].astype(float)
     data.loc[0, "target_headcount"] = value
@@ -126,6 +149,7 @@ def test_invalid_target_rejected(prepared, value):
 
 @pytest.mark.parametrize("column", ["time_of_day", "day_of_week", "headcount_now_age_minutes"])
 def test_inconsistent_audit_or_clock_rejected(prepared, column):
+    """Catch time inputs and saved reading ages that disagree with their timestamps."""
     data, settings = prepared
     data.loc[0, column] += 1
     with pytest.raises(ValueError):
@@ -133,26 +157,31 @@ def test_inconsistent_audit_or_clock_rejected(prepared, column):
 
 
 def test_missing_column_rejected(prepared):
+    """Require the information needed to verify a forecasting example."""
     data, settings = prepared
     with pytest.raises(ValueError):
         validate_partition(data.drop(columns="headcount_now"), settings, "train")
 
 
 def test_wrong_row_count_rejected(prepared):
+    """Detect missing examples rather than comparing a different sample unnoticed."""
     data, settings = prepared
     with pytest.raises(ValueError):
         validate_partition(data.iloc[:2], settings, "train")
 
 
 def test_matching_predictions_accepted(prepared):
+    """Allow raw negative forecasts to be scored when their reference rows match."""
     data, _ = prepared
     predictions = predictions_for(data)
+    # Alignment checks must not hide negative forecasts by clipping or removing them.
     predictions.loc[0, "predicted_headcount"] = -0.25
     verify_prediction_alignment(data, predictions)
 
 
 @pytest.mark.parametrize("problem", ["reorder", "target", "time", "nan", "fewer", "missing"])
 def test_prediction_mismatches_rejected(prepared, problem):
+    """Catch saved predictions paired with different times, targets or rows."""
     data, _ = prepared
     predictions = predictions_for(data)
     if problem == "reorder":
@@ -172,15 +201,19 @@ def test_prediction_mismatches_rejected(prepared, problem):
 
 
 def test_selection_uses_validation_mae_not_lowest_rmse(scores):
+    """Keep MAE as the stated selection measure even when RMSE favours another model."""
     assert select_validation_model(scores) == "svr"
 
 
 def test_selection_tie_uses_rmse(scores):
+    """Use RMSE only when validation MAE cannot separate the models."""
     scores.loc[2, "mae_people"] = 0.9
     assert select_validation_model(scores) == "linear_regression"
 
 
 def test_exact_tie_is_reproducible(scores):
+    """Resolve a complete score tie consistently by model name."""
+    # Make both error scores equal so only the final tie rule can decide.
     scores["mae_people"] = 1.0
     scores["rmse_people"] = 1.0
     assert select_validation_model(scores) == "linear_regression"
@@ -188,6 +221,7 @@ def test_exact_tie_is_reproducible(scores):
 
 @pytest.mark.parametrize("split", ["train", "test"])
 def test_non_validation_scores_forbidden(scores, split):
+    """Keep training and final test scores out of model selection."""
     scores.loc[0, "split"] = split
     with pytest.raises(ValueError, match="validation rows only"):
         select_validation_model(scores)
@@ -195,6 +229,7 @@ def test_non_validation_scores_forbidden(scores, split):
 
 @pytest.mark.parametrize("problem", ["duplicates", "different_counts", "negative", "nan", "empty"])
 def test_invalid_score_tables_rejected(scores, problem):
+    """Reject comparisons with invalid scores or unequal example counts."""
     if problem == "duplicates":
         scores.loc[0, "model"] = "svr"
     elif problem == "different_counts":
@@ -211,15 +246,18 @@ def test_invalid_score_tables_rejected(scores, problem):
 
 @pytest.mark.parametrize("baseline,model,expected", [(2, 1, 50), (2, 3, -50), (2, 2, 0)])
 def test_relative_mae_change(baseline, model, expected):
+    """Keep improvements, regressions and unchanged error distinguishable."""
     assert mae_reduction_percent(baseline, model) == expected
 
 
 def test_zero_baseline_has_undefined_relative_change():
+    """Avoid inventing a percentage when the reference error is zero."""
     assert np.isnan(mae_reduction_percent(0, 1))
     assert np.isnan(mae_reduction_percent(0, 0))
 
 
 @pytest.mark.parametrize("baseline,model", [(-1, 1), (1, -1), (np.nan, 1), (1, np.inf)])
 def test_bad_maes_rejected(baseline, model):
+    """Reject invalid error scores before calculating a relative change."""
     with pytest.raises(ValueError):
         mae_reduction_percent(baseline, model)

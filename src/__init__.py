@@ -1,1 +1,1 @@
-"""Reusable functions for the MMA3001 occupancy forecasting project."""
+"""Shared functions for preparing and checking occupancy forecasts."""

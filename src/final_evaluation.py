@@ -1,8 +1,8 @@
-"""Checks used by the final, single-space forecasting comparison.
+"""Checks that keep the final comparison consistent with the project design.
 
-These functions do not fit models, read files, or use test scores to select a
-model. They validate prepared rows, verify saved-prediction alignment, select
-from validation scores only, and calculate an explicitly labelled error change.
+The functions check prepared examples, match saved predictions to their targets,
+select a model from validation scores and report changes in MAE. They do not
+load files, train models or use test scores to select a model.
 """
 
 import numpy as np
@@ -11,28 +11,29 @@ from src.features import INPUT_COLUMNS, make_features
 
 
 def validate_partition(data: pd.DataFrame, settings: dict, split: str) -> None:
-    """Check a prepared partition against the agreed time and data rules.
+    """Check that one data split follows the preparation rules.
 
-    Parameters
-    ----------
-    data : pandas.DataFrame
-        Prepared forecast examples, including inputs, target, and source-time
-        audit columns. Timestamps may be text or timezone-aware timestamps.
-    settings : dict
-        Contents of Notebook 2's preparation_settings.json.
-    split : {'train', 'validation', 'test'}
-        Partition whose chronological bounds must be respected.
+    Args:
+        data (pandas.DataFrame): Prepared examples with the five model inputs,
+            future target, forecast time, target time and observation times.
+            Dates may be stored as text or timestamps. Rows must be in time order.
+        settings (dict): The preparation_settings.json contents saved by
+            Notebook 2, including dates, row counts and timing allowances.
+        split (str): The split to check: train, validation or test.
 
-    Raises
-    ------
-    ValueError
-        If rows are missing, duplicated, out of order, outside their partition,
-        have invalid counts/time features, or use stale/future observations.
+    Returns:
+        None: Completes without changing the data when the checks pass.
 
-    Notes
-    -----
-    No rows are changed or discarded. Passing these checks verifies preparation
-    rules, not sensor accuracy, forecasting accuracy, or physical room identity.
+    Raises:
+        ValueError: Rows or columns are missing or repeated, counts are invalid,
+            rows are out of order, times cross a split boundary, a reading is
+            too old or too late, or saved time inputs disagree with the dates.
+        KeyError: A required preparation setting is missing.
+
+    Notes:
+        The checks do not repair or remove rows. Passing them supports correct
+        preparation, not sensor accuracy or forecasting accuracy. The function
+        does not verify the physical room associated with the space identifier.
     """
     periods = {
         "train": (settings["train_start"], settings["validation_start"]),
@@ -47,6 +48,7 @@ def validate_partition(data: pd.DataFrame, settings: dict, split: str) -> None:
         raise ValueError("Repeated column names are not supported.")
     horizon = pd.Timedelta(minutes=settings["horizon_minutes"])
     max_age = pd.Timedelta(minutes=settings["max_reading_age_minutes"])
+    # Even the oldest acceptable target must come after the forecast starts.
     if max_age < pd.Timedelta(0) or horizon <= max_age:
         raise ValueError("The horizon must exceed the non-negative freshness allowance.")
     offsets = {
@@ -60,10 +62,12 @@ def validate_partition(data: pd.DataFrame, settings: dict, split: str) -> None:
     missing = [name for name in required if name not in data.columns]
     if missing:
         raise ValueError(f"Missing prepared columns: {missing}")
+    # Catch missing or extra examples before comparing model results.
     if len(data) != settings["split_counts"][split]:
         raise ValueError("Row count differs from the preparation settings.")
 
-    # Encoding validates all five inputs without learning statistics or using targets.
+
+    # Reuse the input checks without learning from targets or other rows.
     make_features(data)
     target = data["target_headcount"].to_numpy(dtype=float)
     if not np.isfinite(target).all() or (target < 0).any() or (target % 1 != 0).any():
@@ -76,11 +80,13 @@ def validate_partition(data: pd.DataFrame, settings: dict, split: str) -> None:
     if not forecast.is_unique or not forecast.is_monotonic_increasing:
         raise ValueError("Forecast rows must be unique and chronological.")
     start, end = (pd.Timestamp(value) for value in periods[split])
+    # Keep future targets inside their own split rather than borrowing from the next one.
     if not (forecast >= start).all() or not (nominal_target < end).all():
         raise ValueError("A forecast or its target crosses the partition boundary.")
     if not ((nominal_target - forecast) == horizon).all():
         raise ValueError("A forecast has the wrong nominal horizon.")
 
+    # Check every count against its own requested time, not just the current count.
     for name, offset in offsets.items():
         observed = pd.to_datetime(data[name + "_observed_at"], utc=True, errors="raise")
         age = forecast + offset - observed
@@ -95,6 +101,7 @@ def validate_partition(data: pd.DataFrame, settings: dict, split: str) -> None:
             if not np.allclose(saved_age, computed_age, rtol=0, atol=1e-8):
                 raise ValueError(f"Saved observation ages disagree for {name}.")
 
+    # Clock inputs must describe Melbourne time even though saved timestamps use UTC.
     local = forecast.dt.tz_convert(settings["local_timezone"])
     hours = local.dt.hour + local.dt.minute / 60
     if not np.allclose(data["time_of_day"], hours, rtol=0, atol=1e-10):
@@ -104,26 +111,27 @@ def validate_partition(data: pd.DataFrame, settings: dict, split: str) -> None:
 
 
 def verify_prediction_alignment(data: pd.DataFrame, predictions: pd.DataFrame) -> None:
-    """Check that saved predictions describe exactly the same rows and targets.
+    """Prevent a model comparison from pairing predictions with the wrong examples.
 
-    Parameters
-    ----------
-    data : pandas.DataFrame
-        Prepared partition, in forecast-time order.
-    predictions : pandas.DataFrame
-        Saved model output containing forecast_time, target_time,
-        target_headcount_observed_at, observed_headcount and predicted_headcount.
+    Args:
+        data (pandas.DataFrame): Prepared examples in forecast time order.
+        predictions (pandas.DataFrame): Saved predictions with forecast_time,
+            target_time, target_headcount_observed_at, observed_headcount
+            and predicted_headcount.
 
-    Raises
-    ------
-    ValueError
-        If rows, timestamps or observed targets differ, or predictions are
-        missing/non-finite. Fractional and negative raw predictions are allowed.
+    Returns:
+        None: Completes without changing either table when the rows match.
 
-    Notes
-    -----
-    Rows are compared positionally. The function does not silently sort, join,
-    or drop examples to make two different evaluations look comparable.
+    Raises:
+        ValueError: Required prediction columns are absent, tables are empty or
+            have different lengths, dates or targets differ, or prediction values
+            are missing or infinite. Repeated or unordered forecast times fail.
+        KeyError: A required column is absent from the prepared data.
+
+    Notes:
+        Rows are compared in their existing order. They are not sorted or dropped
+        to make different results appear comparable. Decimal and negative raw
+        predictions remain allowed so model limitations stay visible.
     """
     time_columns = ["forecast_time", "target_time", "target_headcount_observed_at"]
     required = time_columns + ["observed_headcount", "predicted_headcount"]
@@ -131,6 +139,7 @@ def verify_prediction_alignment(data: pd.DataFrame, predictions: pd.DataFrame) -
         raise ValueError("The saved prediction table is missing required columns.")
     if len(data) == 0 or len(data) != len(predictions):
         raise ValueError("Prepared and prediction row counts differ or are empty.")
+    # Matching row counts alone cannot prove that the same forecasts were evaluated.
     for name in time_columns:
         left = pd.to_datetime(data[name], utc=True).reset_index(drop=True)
         right = pd.to_datetime(predictions[name], utc=True).reset_index(drop=True)
@@ -144,37 +153,38 @@ def verify_prediction_alignment(data: pd.DataFrame, predictions: pd.DataFrame) -
     predicted = predictions["predicted_headcount"].to_numpy(dtype=float)
     if not np.isfinite(observed).all() or not np.isfinite(predicted).all():
         raise ValueError("Predictions or recorded targets are non-finite.")
+    # Do not allow a saved result to substitute different reference headcounts.
     if not np.array_equal(expected, observed):
         raise ValueError("Saved observed headcounts differ from prepared targets.")
 
 
 def select_validation_model(scores: pd.DataFrame) -> str:
-    """Select minimum validation MAE, then RMSE, then model name for exact ties.
+    """Choose the model with the lowest validation MAE using a fixed tie rule.
 
-    Parameters
-    ----------
-    scores : pandas.DataFrame
-        Exactly one validation row per model, with columns model, split,
-        examples, mae_people and rmse_people. All models use the same row count;
-        verify_prediction_alignment separately checks the actual row identities.
+    Args:
+        scores (pandas.DataFrame): One validation row per model with model,
+            split, examples, mae_people and rmse_people. Example counts must
+            be equal. Matching the actual examples is a separate check in
+            verify_prediction_alignment.
 
-    Returns
-    -------
-    str
-        Name of the selected model. Runtime is reported separately, not used
-        as an unstated accuracy-selection criterion.
+    Returns:
+        str: The selected model name. Equal MAEs are compared by RMSE, then
+            by model name for an exact tie. Runtime is not used for selection.
 
-    Raises
-    ------
-    ValueError
-        If test/training rows, duplicate models, invalid errors, or unequal
-        example counts are supplied. The function cannot inspect test results.
+    Raises:
+        ValueError: The table is empty, has missing columns, includes training
+            or test rows, repeats a model, or has invalid errors or unequal counts.
+
+    Notes:
+        Validation scores guide selection. Test scores are deliberately rejected
+        so the final evaluation cannot become another model selection step.
     """
     required = ["model", "split", "examples", "mae_people", "rmse_people"]
     if not isinstance(scores, pd.DataFrame) or scores.empty:
         raise ValueError("A non-empty validation score table is required.")
     if any(name not in scores.columns for name in required):
         raise ValueError("The validation table is missing required columns.")
+    # Reserve the test period for assessment rather than model choice.
     if not (scores["split"] == "validation").all():
         raise ValueError("Selection accepts validation rows only; never test scores.")
     names = scores["model"]
@@ -186,34 +196,32 @@ def select_validation_model(scores: pd.DataFrame) -> str:
     counts = numeric[:, 0]
     if (counts <= 0).any() or (counts % 1 != 0).any() or not (counts == counts[0]).all():
         raise ValueError("Models must have equal, positive whole-number example counts.")
+    # Resolve exact ties consistently instead of changing the selection rule after seeing results.
     ranked = scores.sort_values(["mae_people", "rmse_people", "model"])
     return str(ranked.iloc[0]["model"])
 
 
 def mae_reduction_percent(baseline_mae: float, model_mae: float) -> float:
-    """Return relative MAE reduction; return NaN if the baseline error is zero.
+    """Express the change from baseline MAE without calling it percentage accuracy.
 
-    Parameters
-    ----------
-    baseline_mae, model_mae : float
-        Finite, non-negative MAEs for the same forecast examples.
+    Args:
+        baseline_mae (float): Baseline MAE on the comparison examples.
+        model_mae (float): Model MAE on exactly the same examples.
+            Both inputs must be finite numbers at least zero.
 
-    Returns
-    -------
-    float
-        100 * (baseline_mae - model_mae) / baseline_mae. Positive means less
-        error; negative means worse than baseline. This is not percent accuracy.
-        A zero denominator has no defined relative change, so returns NaN.
+    Returns:
+        float: Baseline MAE minus model MAE, divided by baseline MAE and
+            multiplied by 100. Positive means less error; negative means more.
+            Returns NaN when the baseline is zero because the ratio is undefined.
 
-    Raises
-    ------
-    ValueError
-        If either MAE is negative or non-finite.
+    Raises:
+        ValueError: Either MAE is negative or infinite, or is NaN.
     """
     baseline = float(baseline_mae)
     model = float(model_mae)
     if not np.isfinite([baseline, model]).all() or baseline < 0 or model < 0:
         raise ValueError("MAEs must be finite and non-negative.")
+    # A perfect baseline has no meaningful relative improvement denominator.
     if baseline == 0:
         return float("nan")
     return 100 * (baseline - model) / baseline

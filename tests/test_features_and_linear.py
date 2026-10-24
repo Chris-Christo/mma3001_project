@@ -1,6 +1,6 @@
-"""Synthetic checks of input encoding and the intended linear-regression workflow.
+"""Check input preparation and linear regression using made up examples.
 
-These do not use the building dataset or measure real forecasting performance.
+These tests check implementation behaviour, not accuracy on building records.
 """
 
 import numpy as np
@@ -11,6 +11,7 @@ from src.features import make_features, INPUT_COLUMNS, ENCODED_COLUMNS
 
 
 def example_data():
+    """Provide familiar clock times and shuffled row labels to make ordering mistakes visible."""
     return pd.DataFrame({
         "headcount_now": [2, 4, 6, 8],
         "headcount_lag15": [1, 3, 5, 7],
@@ -21,6 +22,7 @@ def example_data():
 
 
 def test_column_order_row_order_and_unchanged_counts():
+    """Keep model inputs matched to their original examples."""
     data = example_data()
     x = make_features(data)
     assert list(x.columns) == ENCODED_COLUMNS
@@ -29,12 +31,14 @@ def test_column_order_row_order_and_unchanged_counts():
 
 
 def test_clock_encoding_at_four_known_times():
+    """Check the clock representation against easy points around a full day."""
     x = make_features(example_data())
     np.testing.assert_allclose(x["time_sin"], [0, 1, 0, -1], atol=1e-12)
     np.testing.assert_allclose(x["time_cos"], [1, 0, -1, 0], atol=1e-12)
 
 
 def test_times_on_either_side_of_midnight_are_close():
+    """Prevent an artificial jump between late night and early morning."""
     data = example_data().iloc[:2].copy()
     data["time_of_day"] = [23.75, 0.25]
     x = make_features(data)[["time_sin", "time_cos"]].to_numpy()
@@ -42,6 +46,7 @@ def test_times_on_either_side_of_midnight_are_close():
 
 
 def test_weekday_flags_and_monday_reference():
+    """Keep Monday as the reference and distinguish the other days correctly."""
     x = make_features(example_data())
     day_columns = ENCODED_COLUMNS[5:]
     np.testing.assert_array_equal(x[day_columns].sum(axis=1), [0, 1, 1, 1])
@@ -51,14 +56,17 @@ def test_weekday_flags_and_monday_reference():
 
 
 def test_features_do_not_change_when_targets_change():
+    """Verify that future answers cannot influence the model inputs."""
     data = example_data()
     expected = make_features(data)
+    # Changing future answers must leave every model input unchanged.
     data["target_headcount"] = [999, 0, 999, 0]
     data["target_time"] = "future information"
     pd.testing.assert_frame_equal(make_features(data), expected)
 
 
 def test_encoding_one_row_does_not_depend_on_other_rows():
+    """Keep this fixed conversion independent of statistics from other examples."""
     data = example_data()
     alone = make_features(data.iloc[[0]])
     together = make_features(data).iloc[[0]]
@@ -66,6 +74,7 @@ def test_encoding_one_row_does_not_depend_on_other_rows():
 
 
 def test_input_is_not_modified():
+    """Preserve the original data for other models and later checks."""
     data = example_data()
     original = data.copy(deep=True)
     make_features(data)
@@ -73,11 +82,13 @@ def test_input_is_not_modified():
 
 
 def test_missing_required_column_is_rejected():
+    """Stop rather than silently give a model incomplete information."""
     with pytest.raises(ValueError, match="Missing input columns"):
         make_features(example_data().drop(columns="headcount_lag15"))
 
 
 def test_empty_input_is_rejected():
+    """Reject an input table with no forecasts to prepare."""
     with pytest.raises(ValueError, match="At least one"):
         make_features(example_data().iloc[:0])
 
@@ -89,6 +100,7 @@ def test_empty_input_is_rejected():
     ("day_of_week", -1), ("day_of_week", 7), ("day_of_week", 2.5),
 ])
 def test_invalid_input_values_are_rejected(column, bad_value):
+    """Catch counts and clock values that violate the input assumptions."""
     data = example_data().astype(float)
     data.loc[data.index[0], column] = bad_value
     with pytest.raises(ValueError):
@@ -96,6 +108,7 @@ def test_invalid_input_values_are_rejected(column, bad_value):
 
 
 def test_non_numeric_input_is_rejected():
+    """Reject text that cannot represent a count."""
     data = example_data()
     data["headcount_now"] = "not a count"
     with pytest.raises(ValueError):
@@ -103,6 +116,15 @@ def test_non_numeric_input_is_rejected():
 
 
 def synthetic_data(n=240):
+    """Create repeatable example inputs without reading the sensor dataset.
+
+    Args:
+        n (int): Number of rows to generate. Defaults to 240.
+
+    Returns:
+        pandas.DataFrame: Valid count, clock and weekday inputs made with a fixed seed.
+    """
+    # Use a fixed seed so a failed test can be repeated with the same examples.
     rng = np.random.default_rng(42)
     return pd.DataFrame({
         "headcount_now": rng.integers(0, 20, n),
@@ -114,10 +136,11 @@ def synthetic_data(n=240):
 
 
 def test_pipeline_recovers_a_known_linear_relation_on_withheld_rows():
-    # This artificial target has an exact linear relationship, unlike real occupancy.
+    """Check the fitting process on a relationship with a known exact answer."""
     data = synthetic_data()
     x = make_features(data)
     weights = np.arange(1, len(x.columns) + 1) / 10
+    # This exact relationship checks implementation, not real occupancy accuracy.
     y = 2.5 + x.to_numpy() @ weights
     model = LinearRegression().fit(x.iloc[:180], y[:180])
     np.testing.assert_allclose(model.predict(x.iloc[180:]), y[180:], atol=1e-10)
@@ -126,6 +149,7 @@ def test_pipeline_recovers_a_known_linear_relation_on_withheld_rows():
 
 
 def test_predicting_later_rows_does_not_refit_the_model():
+    """Keep fitted coefficients fixed while evaluating later examples."""
     x = make_features(synthetic_data())
     y = 1 + 0.5 * x["headcount_now"].to_numpy()
     model = LinearRegression().fit(x.iloc[:180], y[:180])
