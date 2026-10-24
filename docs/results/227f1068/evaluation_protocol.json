@@ -1,0 +1,118 @@
+{
+  "space_id": "227f1068-9e41-469f-bef0-275f27a0bdba",
+  "selection_rule": "minimum validation MAE; exact ties use RMSE then model name",
+  "selected_model": "svr",
+  "selection_scores": [
+    {
+      "model": "persistence",
+      "split": "validation",
+      "examples": 3388,
+      "mae_people": 0.8627508854781583,
+      "rmse_people": 1.4057354266462994
+    },
+    {
+      "model": "linear_regression",
+      "split": "validation",
+      "examples": 3388,
+      "mae_people": 0.8217914142945243,
+      "rmse_people": 1.164725716118878
+    },
+    {
+      "model": "svr",
+      "split": "validation",
+      "examples": 3388,
+      "mae_people": 0.7814842904121425,
+      "rmse_people": 1.1627601588669043
+    }
+  ],
+  "methods_to_evaluate": [
+    "persistence",
+    "linear_regression",
+    "svr"
+  ],
+  "fit_policy": "reproduce training-only fits; no train+validation refit",
+  "fit_partitions": [
+    "train"
+  ],
+  "svr_parameters": {
+    "C": 10.0,
+    "epsilon": 0.1,
+    "gamma": 0.01
+  },
+  "linear_parameters": {
+    "copy_X": true,
+    "fit_intercept": true,
+    "n_jobs": null,
+    "positive": false,
+    "tol": 1e-06
+  },
+  "output_policy": "raw fractional and negative predictions; no rounding or clipping",
+  "development_csv_sha256": {
+    "train": "099d22f70fe56fa30bc8ff5232d411a82cb9141a26b3be44cc4a386b00eb3ec8",
+    "validation": "1590eefb16260756a990e0c1d362c0b0edde2634e2a8f5a2348b0bbdf687763c"
+  },
+  "source_sha256": {
+    "evaluation.py": "66c525f5cd6d00d39b5bcde8b7c67a5080ddf056a0d099d3cdf90b24332dbf2a",
+    "features.py": "db543b157363a7e306d692a97c86f2c9decca018aee80ae677772fb0d3eee37a",
+    "svr_model.py": "6953fbf45f918f49074eaa3c81836816be7da2ccb7d9ba0a52b14b88ad8490ab",
+    "final_evaluation.py": "b86c1f6935bed02668fbfa31160f005b7102298bee477c68551634541925da4d"
+  },
+  "preparation_settings": {
+    "space_id": "227f1068-9e41-469f-bef0-275f27a0bdba",
+    "source_zip": "../data/DataSet2.zip",
+    "source_csv": "DataSet2_Env_and_Occupancy/5occupancySensor_MayToDec2024_9MRows/5occupancySensor_MayToDec2024_9MRows.csv",
+    "local_timezone": "Australia/Melbourne",
+    "saved_timestamp_timezone": "UTC",
+    "forecast_frequency": "15min",
+    "horizon_minutes": 30.0,
+    "max_reading_age_minutes": 5.0,
+    "train_start": "2024-03-01T00:00:00+11:00",
+    "validation_start": "2025-09-01T00:00:00+10:00",
+    "test_start": "2026-01-01T00:00:00+11:00",
+    "study_end_exclusive": "2026-04-01T00:00:00+11:00",
+    "feature_columns": [
+      "headcount_now",
+      "headcount_lag15",
+      "headcount_lag30",
+      "time_of_day",
+      "day_of_week"
+    ],
+    "target_column": "target_headcount",
+    "timestamp_columns": [
+      "forecast_time",
+      "target_time",
+      "headcount_now_observed_at",
+      "headcount_lag15_observed_at",
+      "headcount_lag30_observed_at",
+      "target_headcount_observed_at"
+    ],
+    "time_of_day_units": "Decimal hours in Melbourne local time",
+    "day_of_week_codes": "Monday=0 through Sunday=6; categorical labels",
+    "missing_rule": "Require all three input counts and the target; no imputation",
+    "lookup_rule": "Latest reading at or before each requested time, within max_age",
+    "duplicate_rule": "Stop on conflicting counts; collapse agreeing counts at the same timestamp",
+    "split_rule": "Forecast and nominal target must be in the same chronological partition",
+    "test_use": "Reserved for final evaluation after model selection",
+    "pandas_version": "3.0.6",
+    "split_counts": {
+      "train": 14772,
+      "validation": 3388,
+      "test": 2260
+    }
+  },
+  "versions": {
+    "python": "3.14.6",
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scikit_learn": "1.9.1"
+  },
+  "diagnostics_fixed_in_advance": [
+    "monthly test errors",
+    "negative forecasts",
+    "mean residual",
+    "under/overprediction frequency",
+    "first test-week plot",
+    "runtime"
+  ],
+  "test_result_use": "report generalisation, not tune or change selected model"
+}

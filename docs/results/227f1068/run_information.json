@@ -1,0 +1,43 @@
+{
+  "selected_by_validation": "svr",
+  "evaluated_partitions": [
+    "train",
+    "validation",
+    "test"
+  ],
+  "test_data_used": true,
+  "test_used_for_model_selection_or_fitting": false,
+  "protocol_sha256": "197ab72fbe4a359f826f892f526c21777d67e7897c119197b14bd3c4c497759f",
+  "csv_sha256": {
+    "train": "099d22f70fe56fa30bc8ff5232d411a82cb9141a26b3be44cc4a386b00eb3ec8",
+    "validation": "1590eefb16260756a990e0c1d362c0b0edde2634e2a8f5a2348b0bbdf687763c",
+    "test": "5c9a2a9d87659ceef1ca8f0b275bb48f9b2df610b7f8bc624a9e928bb7913f28"
+  },
+  "test_exposure_record": {
+    "first_execution_utc": "2026-10-24T04:19:26.629941+00:00",
+    "protocol_sha256": "197ab72fbe4a359f826f892f526c21777d67e7897c119197b14bd3c4c497759f",
+    "test_csv_sha256": "5c9a2a9d87659ceef1ca8f0b275bb48f9b2df610b7f8bc624a9e928bb7913f28",
+    "selected_before_test": "svr"
+  },
+  "source_sha256": {
+    "evaluation.py": "66c525f5cd6d00d39b5bcde8b7c67a5080ddf056a0d099d3cdf90b24332dbf2a",
+    "features.py": "db543b157363a7e306d692a97c86f2c9decca018aee80ae677772fb0d3eee37a",
+    "svr_model.py": "6953fbf45f918f49074eaa3c81836816be7da2ccb7d9ba0a52b14b88ad8490ab",
+    "final_evaluation.py": "b86c1f6935bed02668fbfa31160f005b7102298bee477c68551634541925da4d"
+  },
+  "versions": {
+    "python": "3.14.6",
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scikit_learn": "1.9.1"
+  },
+  "test_examples": 2260,
+  "common_feature_encoding_seconds": 0.004103599931113422,
+  "fit_seconds_this_run": {
+    "persistence": 0.0,
+    "linear_regression": 0.03892619989346713,
+    "svr": 5.550556599977426
+  },
+  "output_policy": "raw fractional and negative predictions; no rounding or clipping",
+  "completed_utc": "2026-10-24T04:20:19.030998+00:00"
+}
