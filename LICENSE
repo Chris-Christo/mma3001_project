@@ -1,0 +1,48 @@
+Academic Assessment and Review Licence
+
+Copyright (c) 2026 [YOUR FULL NAME]
+All rights reserved except for the permissions stated below.
+
+1. Scope
+
+This licence applies only to original project code and associated documentation
+in this repository, to the extent that the copyright holder has the right to
+license those materials. It does not cover the Monash dataset, teaching
+materials, external libraries, or other material with separate ownership or
+licence terms. Those materials remain subject to their own terms.
+
+2. Permitted assessment and review
+
+Recipients lawfully given access to this project may inspect, download, copy
+and run the covered materials solely to assess the project, review its methods,
+or verify and reproduce its reported results. Local changes needed for these
+purposes are permitted. This permission does not authorise adapting the project
+for another application.
+
+University staff and authorised assessment service providers may retain and
+share copies as needed for marking, moderation, academic integrity review and
+institutional record keeping. Copies must retain this copyright notice and
+licence.
+
+3. Other uses
+
+Except for the permissions above, publication, redistribution, sublicensing,
+sale, incorporation into other projects, and operational or commercial use
+require prior written permission from the copyright holder. This includes
+using the code to operate an HVAC system or another real building service.
+
+Nothing in this licence limits rights available under applicable law, existing
+institutional agreements, or the applicable terms of a hosting platform.
+
+4. Project limitations
+
+This is a university assessment project. It is not presented as a validated
+building control system. No guarantee is made about forecast accuracy, energy
+savings, thermal comfort or suitability for operational use.
+
+5. Warranty
+
+To the extent permitted by law, the materials are supplied without warranty,
+and the copyright holder accepts no liability for loss or damage arising from
+their use. Nothing in this notice excludes a right or liability that cannot
+lawfully be excluded.
