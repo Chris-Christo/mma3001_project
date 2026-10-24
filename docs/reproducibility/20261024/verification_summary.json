@@ -1,0 +1,39 @@
+{
+  "verification_scope": "Read-only comparison of supplied reproduction records; no modelling rerun by this review.",
+  "reference": "Earlier uploaded mma3001_project.zip: docs/results/227f1068/comparison_metrics.csv",
+  "test_run": {
+    "tests": "113",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "6.367",
+    "timestamp": "2026-10-24T21:47:24.295935+11:00"
+  },
+  "test_groups": {
+    "test_evaluation": 21,
+    "test_features_and_linear": 21,
+    "test_final_evaluation": 46,
+    "test_svr": 25
+  },
+  "comparison_rows_checked": 9,
+  "example_counts_match_original": true,
+  "mae_and_rmse_match_original_at_recorded_precision": true,
+  "selected_model_matches_original": true,
+  "svr_parameters_match_original": true,
+  "preparation_settings_match_protocol": true,
+  "source_fingerprints_changed_after_documentation_revision": true,
+  "original_results_overwritten": false,
+  "new_independent_test": false,
+  "not_established": [
+    "Execution on different hardware",
+    "Independent sensor accuracy",
+    "Fresh timing or all individual predictions from supplied records",
+    "Exact Git commit of the reproduction checkout"
+  ],
+  "file_sha256": {
+    "reproduction_test_results.xml": "81ac8198e9235f833f203b816d81a39e7a679d64829d86fe69beee921d0a36cb",
+    "comparison_metrics.csv": "4ddbeba8089aff25745ac57713e852aacecfb8c1d80a3732d03f43f588ea4d76",
+    "preparation_settings.json": "79d178a7f5c884d8215a371fde23dcf5c7cc906383ff532f10c2162bc56b62d1",
+    "evaluation_protocol.json": "253e25a0aa5cef9ae30f971700478e67e524546213278afb8f29f7c7cdc441c7"
+  }
+}

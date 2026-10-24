@@ -1,0 +1,43 @@
+{
+  "space_id": "227f1068-9e41-469f-bef0-275f27a0bdba",
+  "source_zip": "../data/DataSet2.zip",
+  "source_csv": "DataSet2_Env_and_Occupancy/5occupancySensor_MayToDec2024_9MRows/5occupancySensor_MayToDec2024_9MRows.csv",
+  "local_timezone": "Australia/Melbourne",
+  "saved_timestamp_timezone": "UTC",
+  "forecast_frequency": "15min",
+  "horizon_minutes": 30.0,
+  "max_reading_age_minutes": 5.0,
+  "train_start": "2024-03-01T00:00:00+11:00",
+  "validation_start": "2025-09-01T00:00:00+10:00",
+  "test_start": "2026-01-01T00:00:00+11:00",
+  "study_end_exclusive": "2026-04-01T00:00:00+11:00",
+  "feature_columns": [
+    "headcount_now",
+    "headcount_lag15",
+    "headcount_lag30",
+    "time_of_day",
+    "day_of_week"
+  ],
+  "target_column": "target_headcount",
+  "timestamp_columns": [
+    "forecast_time",
+    "target_time",
+    "headcount_now_observed_at",
+    "headcount_lag15_observed_at",
+    "headcount_lag30_observed_at",
+    "target_headcount_observed_at"
+  ],
+  "time_of_day_units": "Decimal hours in Melbourne local time",
+  "day_of_week_codes": "Monday=0 through Sunday=6; categorical labels",
+  "missing_rule": "Require all three input counts and the target; no imputation",
+  "lookup_rule": "Latest reading at or before each requested time, within max_age",
+  "duplicate_rule": "Stop on conflicting counts; collapse agreeing counts at the same timestamp",
+  "split_rule": "Forecast and nominal target must be in the same chronological partition",
+  "test_use": "Reserved for final evaluation after model selection",
+  "pandas_version": "3.0.6",
+  "split_counts": {
+    "train": 14772,
+    "validation": 3388,
+    "test": 2260
+  }
+}
